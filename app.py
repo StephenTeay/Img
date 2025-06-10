@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import random
 import base64
 import os
 from io import BytesIO
@@ -85,15 +86,33 @@ def generate_with_stability(prompt, negative_prompt, width=512, height=512):
 
 # Main Streamlit UI
 def main():
-    st.set_page_config(page_title="Stable Diffusion Image Generator", layout="wide")
+    st.set_page_config(page_title=" General-Purpose AI Image Creator: An Integrated Approach Using Deep Learning and Streamlit", layout="wide")
     st.title("🖼️ Stable Diffusion Image Generator")
     
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.subheader("Prompt Parameters")
+        placeholders = [
+    "A majestic lion in the savannah",
+    "A serene lake at sunset",
+    "A towering mountain peak",
+    "A vibrant cityscape at night",
+    "A delicate cherry blossom tree",
+    "A powerful waterfall cascading down",
+    "A stunning aurora borealis display",
+    "A peaceful village nestled in the hills",
+    "A bustling market filled with colors",
+    "A tranquil forest glade",
+    "A dramatic thunderstorm rolling in",
+    "A beautiful butterfly emerging from its cocoon",
+    "A majestic elephant roaming free",
+    "A picturesque coastal town",
+    "A breathtaking sunrise over the ocean"
+]
+
         
-        keywords = st.text_input("Main Subject:", placeholder="A majestic lion in the savannah", key="keywords")
+        keywords = st.text_input("Main Subject:", placeholder=random.choice(placeholders), key="keywords")
         
         style = st.selectbox("Art Style:", 
                            ["Realistic", "Oil Painting", "Anime", "Watercolor", 
