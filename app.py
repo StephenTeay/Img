@@ -1,181 +1,150 @@
-
 import streamlit as st
 import requests
+import base64
 import os
 from io import BytesIO
-import base64
 
-# Configuration
-API_CHOICES = {
-    "Stable Diffusion": "stability",
-    "DALL·E (OpenAI)": "dalle"
-}
+# Hardcoded API Key (replace with your actual key)
+STABILITY_API_KEY = os.getenv("STABILITY_API_KEY"," ")
 
-# API Key Setup
-def setup_api_keys():
-    if 'api_keys' not in st.session_state:
-        st.session_state.api_keys = {
-            "stability": os.getenv("STABILITY_API_KEY", ""),
-            "dalle": os.getenv("OPENAI_API_KEY", "")
-        }
-
-# Generate prompts
+# Generate prompt with all components
 def generate_prompt(keywords, style, quality, lighting, artist, negative):
-    prompt = f"{quality} {style} style {keywords}"
-    if lighting != "None":
-        prompt += f", {lighting} lighting"
+    components = []
+    if quality:
+        components.append(quality)
+    if style:
+        components.append(f"{style} style")
+    components.append(keywords)
+    if lighting and lighting != "None":
+        components.append(f"{lighting} lighting")
     if artist:
-        prompt += f", in the style of {artist}"
-    return prompt
+        components.append(f"in the style of {artist}")
+    
+    prompt = ", ".join(components)
+    
+    if negative:
+        negative_prompt = f"Negative: {negative}"
+    else:
+        negative_prompt = "Negative: None"
+    
+    return prompt, negative_prompt
 
-# API Call Functions
+# Generate image with Stability Diffusion
 def generate_with_stability(prompt, negative_prompt, width=512, height=512):
-    api_key = st.session_state.api_keys["stability"]
-    if not api_key:
-        st.error("Stability API key not configured")
+    if not STABILITY_API_KEY:
+        st.error("API key not configured")
+        return None
+    
+    if not prompt or not prompt.strip():
+        st.error("Prompt cannot be empty")
         return None
     
     engine_id = "stable-diffusion-xl-1024-v1-0"
     api_host = "https://api.stability.ai"
     
-    response = requests.post(
-        f"{api_host}/v1/generation/{engine_id}/text-to-image",
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-            "Authorization": f"Bearer {api_key}"
-        },
-        json={
-            "text_prompts": [
-                {
-                    "text": prompt,
-                    "weight": 1
-                },
-                {
-                    "text": negative_prompt,
-                    "weight": -1
-                }
-            ],
-            "cfg_scale": 7,
-            "height": height,
-            "width": width,
-            "samples": 1,
-            "steps": 30,
-        },
-    )
-    
-    if response.status_code == 200:
-        data = response.json()
-        return data["artifacts"][0]["base64"]
-    else:
-        st.error(f"API Error: {response.text}")
-        return None
-
-def generate_with_dalle(prompt, size="1024x1024"):
-    api_key = st.session_state.api_keys["dalle"]
-    if not api_key:
-        st.error("OpenAI API key not configured")
-        return None
-    
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
-    
-    payload = {
-        "model": "dall-e-3",
-        "prompt": prompt,
-        "n": 1,
-        "size": size,
-        "quality": "standard"
-    }
+    text_prompts = [{"text": prompt, "weight": 1}]
+    if negative_prompt and negative_prompt.lower() != "negative: none":
+        text_prompts.append({"text": negative_prompt.replace("Negative: ", ""), "weight": -1})
     
     try:
         response = requests.post(
-            "https://api.openai.com/v1/images/generations",
-            headers=headers,
-            json=payload
+            f"{api_host}/v1/generation/{engine_id}/text-to-image",
+            headers={
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+                "Authorization": f"Bearer {STABILITY_API_KEY}"
+            },
+            json={
+                "text_prompts": text_prompts,
+                "cfg_scale": 7,
+                "height": height,
+                "width": width,
+                "samples": 1,
+                "steps": 30,
+            },
+            timeout=30
         )
-        response.raise_for_status()
-        image_url = response.json()["data"][0]["url"]
-        image_response = requests.get(image_url)
-        return base64.b64encode(image_response.content).decode('utf-8')
-    except Exception as e:
-        st.error(f"API Error: {str(e)}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            return data["artifacts"][0]["base64"]
+        else:
+            error_msg = response.text
+            try:
+                error_data = response.json()
+                if "message" in error_data:
+                    error_msg = error_data["message"]
+            except:
+                pass
+            st.error(f"API Error: {error_msg}")
+            return None
+            
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network Error: {str(e)}")
         return None
 
-# Streamlit UI
+# Main Streamlit UI
 def main():
-    st.set_page_config(page_title="AI Image Generator", layout="wide")
-    st.title("🖼️ AI Image Generator")
+    st.set_page_config(page_title="Stable Diffusion Image Generator", layout="wide")
+    st.title("🖼️ Stable Diffusion Image Generator")
     
-    setup_api_keys()
-    
-    # Sidebar for API configuration
-    with st.sidebar:
-        st.header("API Configuration")
-        api_choice = st.radio("Select API:", list(API_CHOICES.keys()))
-        
-        if api_choice == "Stable Diffusion":
-            st.session_state.api_keys["stability"] = st.text_input(
-                "Stability API Key",
-                value=st.session_state.api_keys["stability"],
-                type="password"
-            )
-        else:
-            st.session_state.api_keys["dalle"] = st.text_input(
-                "OpenAI API Key",
-                value=st.session_state.api_keys["dalle"],
-                type="password"
-            )
-        
-        st.divider()
-        st.header("Image Settings")
-        width = st.slider("Width", 256, 1024, 512, 64)
-        height = st.slider("Height", 256, 1024, 512, 64)
-    
-    # Main content
     col1, col2 = st.columns([1, 2])
     
     with col1:
         st.subheader("Prompt Parameters")
-        keywords = st.text_input("Main Keywords:", placeholder="A majestic lion in the savannah")
         
-        style = st.selectbox("Art Style:", ["Realistic", "Oil Painting", "Anime", 
-                                          "Watercolor", "Cyberpunk", "Pixel Art", 
-                                          "Surrealist", "Renaissance"])
+        keywords = st.text_input("Main Subject:", placeholder="A majestic lion in the savannah", key="keywords")
+        
+        style = st.selectbox("Art Style:", 
+                           ["Realistic", "Oil Painting", "Anime", "Watercolor", 
+                            "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"],
+                           key="style")
         
         quality = st.select_slider("Quality Level:", 
-                                  options=["Low", "Medium", "High", "Ultra HD"])
+                                 options=["Low", "Medium", "High", "Ultra HD"],
+                                 value="High",
+                                 key="quality")
         
-        lighting = st.radio("Lighting:", ["None", "Cinematic", "Golden Hour", 
-                                        "Neon", "Studio", "Moody"])
+        lighting = st.radio("Lighting:", 
+                          ["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"],
+                          key="lighting")
         
-        artist = st.text_input("Artist Style (optional):", placeholder="e.g., Van Gogh, Studio Ghibli")
+        artist = st.text_input("Artist Style (optional):", 
+                             placeholder="e.g., Van Gogh, Studio Ghibli",
+                             key="artist")
         
         negative = st.text_area("Negative Prompts:", 
-                               placeholder="Things to avoid (blurry, deformed hands, text...)",
-                               height=100)
+                              placeholder="Things to avoid (blurry, deformed hands, text...)",
+                              height=100,
+                              key="negative")
+        
+        width = st.slider("Width", 512, 1024, 768, 64, key="width")
+        height = st.slider("Height", 512, 1024, 768, 64, key="height")
         
         if st.button("Generate Image", type="primary", use_container_width=True):
-            with st.spinner("Generating image..."):
-                # Generate prompt
-                final_prompt = generate_prompt(keywords, style, quality, lighting, artist, negative)
-                st.session_state.final_prompt = final_prompt
+            if not keywords.strip():
+                st.error("Please enter a main subject")
+                st.stop()
                 
-                # Call appropriate API
-                if API_CHOICES[api_choice] == "stability":
-                    image_data = generate_with_stability(
-                        final_prompt, 
-                        negative,
-                        width=width,
-                        height=height
-                    )
-                else:
-                    image_data = generate_with_dalle(
-                        final_prompt,
-                        size=f"{width}x{height}"
-                    )
+            with st.spinner("Generating image..."):
+                prompt, negative_prompt = generate_prompt(
+                    keywords.strip(),
+                    style,
+                    quality,
+                    lighting,
+                    artist.strip(),
+                    negative.strip()
+                )
+                
+                st.session_state.prompt = prompt
+                st.session_state.negative_prompt = negative_prompt
+                
+                image_data = generate_with_stability(
+                    prompt,
+                    negative_prompt,
+                    width=width,
+                    height=height
+                )
                 
                 if image_data:
                     st.session_state.generated_image = image_data
@@ -185,16 +154,20 @@ def main():
         st.subheader("Generated Image")
         
         if 'generated' in st.session_state:
-            st.code(st.session_state.final_prompt, language="text")
+            # Display prompts in expandable sections
+            with st.expander("🖋️ PROMPT", expanded=True):
+                st.write(st.session_state.prompt)
             
-            # Display generated image
+            with st.expander("🚫 NEGATIVE PROMPT", expanded=False):
+                st.write(st.session_state.negative_prompt)
+            
+            # Display image
             image_bytes = base64.b64decode(st.session_state.generated_image)
+            st.image(image_bytes, use_column_width=True)
             
-            col2a, col2b = st.columns(2)
-            with col2a:
-                st.image(image_bytes, caption="Generated Image", use_column_width=True)
-            
-            with col2b:
+            # Download buttons
+            col1, col2 = st.columns(2)
+            with col1:
                 st.download_button(
                     label="Download Image",
                     data=image_bytes,
@@ -202,16 +175,16 @@ def main():
                     mime="image/png",
                     use_container_width=True
                 )
-                
+            with col2:
                 st.download_button(
-                    label="Copy Prompt",
-                    data=st.session_state.final_prompt,
-                    file_name="ai_prompt.txt",
+                    label="Copy Prompts",
+                    data=f"Prompt: {st.session_state.prompt}\n\nNegative Prompt: {st.session_state.negative_prompt}",
+                    file_name="prompts.txt",
                     mime="text/plain",
                     use_container_width=True
                 )
         else:
-            st.info("Enter parameters and click 'Generate Image'")
+            st.info("Enter your prompt parameters and click 'Generate Image'")
 
 if __name__ == "__main__":
     main()
