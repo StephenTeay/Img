@@ -182,7 +182,7 @@ def main():
             
             # Display image
             image_bytes = base64.b64decode(st.session_state.generated_image)
-            st.image(image_bytes, use_column_width=True)
+            st.image(image_bytes, use_container_width=True)
             
             # Download buttons
             col1, col2 = st.columns(2)
