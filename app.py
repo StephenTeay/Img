@@ -1,4 +1,3 @@
-Add session states to necessary parts
 import streamlit as st
 import requests
 import random
