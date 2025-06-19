@@ -1,3 +1,4 @@
+Add session states to necessary parts
 import streamlit as st
 import requests
 import random
@@ -7,6 +8,21 @@ from io import BytesIO
 
 # Hardcoded API Key (replace with your actual key)
 STABILITY_API_KEY = os.getenv("STABILITY_API_KEY"," ")
+
+# Initialize session states
+if 'generated' not in st.session_state:
+    st.session_state.generated = False
+    st.session_state.generated_image = None
+    st.session_state.prompt = ""
+    st.session_state.negative_prompt = ""
+    st.session_state.keywords = ""
+    st.session_state.style = "Realistic"
+    st.session_state.quality = "High"
+    st.session_state.lighting = "None"
+    st.session_state.artist = ""
+    st.session_state.negative = ""
+    st.session_state.width = 768
+    st.session_state.height = 768
 
 # Generate prompt with all components
 def generate_prompt(keywords, style, quality, lighting, artist, negative):
@@ -111,48 +127,66 @@ def main():
     "A breathtaking sunrise over the ocean"
 ]
 
-        
-        keywords = st.text_input("Main Subject:", placeholder=random.choice(placeholders), key="keywords")
+        # Use session state values for all inputs
+        keywords = st.text_input("Main Subject:", 
+                               value=st.session_state.keywords,
+                               placeholder=random.choice(placeholders), 
+                               key="keywords_input")
         
         style = st.selectbox("Art Style:", 
                            ["Realistic", "Oil Painting", "Anime", "Watercolor", 
                             "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"],
-                           key="style")
+                           index=["Realistic", "Oil Painting", "Anime", "Watercolor", 
+                                  "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"].index(st.session_state.style),
+                           key="style_select")
         
         quality = st.select_slider("Quality Level:", 
                                  options=["Low", "Medium", "High", "Ultra HD"],
-                                 value="High",
-                                 key="quality")
+                                 value=st.session_state.quality,
+                                 key="quality_slider")
         
         lighting = st.radio("Lighting:", 
                           ["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"],
-                          key="lighting")
+                          index=["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"].index(st.session_state.lighting),
+                          key="lighting_radio")
         
         artist = st.text_input("Artist Style (optional):", 
+                             value=st.session_state.artist,
                              placeholder="e.g., Van Gogh, Studio Ghibli",
-                             key="artist")
+                             key="artist_input")
         
         negative = st.text_area("Negative Prompts:", 
+                              value=st.session_state.negative,
                               placeholder="Things to avoid (blurry, deformed hands, text...)",
                               height=100,
-                              key="negative")
+                              key="negative_input")
         
-        width = st.slider("Width", 512, 1024, 768, 64, key="width")
-        height = st.slider("Height", 512, 1024, 768, 64, key="height")
+        width = st.slider("Width", 512, 1024, st.session_state.width, 64, key="width_slider")
+        height = st.slider("Height", 512, 1024, st.session_state.height, 64, key="height_slider")
         
         if st.button("Generate Image", type="primary", use_container_width=True):
             if not keywords.strip():
                 st.error("Please enter a main subject")
                 st.stop()
                 
+            # Update session states with current values
+            st.session_state.keywords = keywords.strip()
+            st.session_state.style = style
+            st.session_state.quality = quality
+            st.session_state.lighting = lighting
+            st.session_state.artist = artist.strip()
+            st.session_state.negative = negative.strip()
+            st.session_state.width = width
+            st.session_state.height = height
+            
             with st.spinner("Generating image..."):
                 prompt, negative_prompt = generate_prompt(
-                    keywords.strip(),
-                    style,
-                    quality,
-                    lighting,
-                    artist.strip(),
-                    negative.strip()
+                    st.session_state.keywords,
+                    st.session_state.style,
+                    st.session_state.quality,
+                    st.session_state.lighting,
+                    st.session_state.artist,
+                    st.session_state.negative
                 )
                 
                 st.session_state.prompt = prompt
@@ -161,8 +195,8 @@ def main():
                 image_data = generate_with_stability(
                     prompt,
                     negative_prompt,
-                    width=width,
-                    height=height
+                    width=st.session_state.width,
+                    height=st.session_state.height
                 )
                 
                 if image_data:
@@ -172,7 +206,7 @@ def main():
     with col2:
         st.subheader("Generated Image")
         
-        if 'generated' in st.session_state:
+        if st.session_state.generated and st.session_state.generated_image:
             # Display prompts in expandable sections
             with st.expander("🖋️ PROMPT", expanded=True):
                 st.write(st.session_state.prompt)
