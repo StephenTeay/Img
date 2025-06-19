@@ -127,65 +127,66 @@ def main():
 ]
 
         # Use session state values for all inputs
-        keywords = st.text_input("Main Subject:", 
-                               value=st.session_state.keywords,
-                               placeholder=random.choice(placeholders), 
-                               key="keywords_input")
+        st.text_input("Main Subject:", 
+                    value=st.session_state.keywords,
+                    placeholder=random.choice(placeholders), 
+                    key="keywords_input",
+                    on_change=lambda: setattr(st.session_state, 'keywords', st.session_state.keywords_input))
         
-        style = st.selectbox("Art Style:", 
-                           ["Realistic", "Oil Painting", "Anime", "Watercolor", 
-                            "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"],
-                           index=["Realistic", "Oil Painting", "Anime", "Watercolor", 
-                                  "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"].index(st.session_state.style),
-                           key="style_select")
+        st.selectbox("Art Style:", 
+                   ["Realistic", "Oil Painting", "Anime", "Watercolor", 
+                    "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"],
+                   index=["Realistic", "Oil Painting", "Anime", "Watercolor", 
+                          "Cyberpunk", "Pixel Art", "Surrealist", "Renaissance"].index(st.session_state.style),
+                   key="style_select",
+                   on_change=lambda: setattr(st.session_state, 'style', st.session_state.style_select))
         
-        quality = st.select_slider("Quality Level:", 
-                                 options=["Low", "Medium", "High", "Ultra HD"],
-                                 value=st.session_state.quality,
-                                 key="quality_slider")
+        st.select_slider("Quality Level:", 
+                       options=["Low", "Medium", "High", "Ultra HD"],
+                       value=st.session_state.quality,
+                       key="quality_slider",
+                       on_change=lambda: setattr(st.session_state, 'quality', st.session_state.quality_slider))
         
-        lighting = st.radio("Lighting:", 
-                          ["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"],
-                          index=["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"].index(st.session_state.lighting),
-                          key="lighting_radio")
+        st.radio("Lighting:", 
+               ["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"],
+               index=["None", "Cinematic", "Golden Hour", "Neon", "Studio", "Moody"].index(st.session_state.lighting),
+               key="lighting_radio",
+               on_change=lambda: setattr(st.session_state, 'lighting', st.session_state.lighting_radio))
         
-        artist = st.text_input("Artist Style (optional):", 
-                             value=st.session_state.artist,
-                             placeholder="e.g., Van Gogh, Studio Ghibli",
-                             key="artist_input")
+        st.text_input("Artist Style (optional):", 
+                    value=st.session_state.artist,
+                    placeholder="e.g., Van Gogh, Studio Ghibli",
+                    key="artist_input",
+                    on_change=lambda: setattr(st.session_state, 'artist', st.session_state.artist_input))
         
-        negative = st.text_area("Negative Prompts:", 
-                              value=st.session_state.negative,
-                              placeholder="Things to avoid (blurry, deformed hands, text...)",
-                              height=100,
-                              key="negative_input")
+        st.text_area("Negative Prompts:", 
+                   value=st.session_state.negative,
+                   placeholder="Things to avoid (blurry, deformed hands, text...)",
+                   height=100,
+                   key="negative_input",
+                   on_change=lambda: setattr(st.session_state, 'negative', st.session_state.negative_input))
         
-        width = st.slider("Width", 512, 1024, st.session_state.width, 64, key="width_slider")
-        height = st.slider("Height", 512, 1024, st.session_state.height, 64, key="height_slider")
+        st.slider("Width", 512, 1024, st.session_state.width, 64, 
+                key="width_slider",
+                on_change=lambda: setattr(st.session_state, 'width', st.session_state.width_slider))
+        
+        st.slider("Height", 512, 1024, st.session_state.height, 64, 
+                key="height_slider",
+                on_change=lambda: setattr(st.session_state, 'height', st.session_state.height_slider))
         
         if st.button("Generate Image", type="primary", use_container_width=True):
-            if not keywords.strip():
+            if not st.session_state.keywords.strip():
                 st.error("Please enter a main subject")
                 st.stop()
                 
-            # Update session states with current values
-            st.session_state.keywords = keywords.strip()
-            st.session_state.style = style
-            st.session_state.quality = quality
-            st.session_state.lighting = lighting
-            st.session_state.artist = artist.strip()
-            st.session_state.negative = negative.strip()
-            st.session_state.width = width
-            st.session_state.height = height
-            
             with st.spinner("Generating image..."):
                 prompt, negative_prompt = generate_prompt(
-                    st.session_state.keywords,
+                    st.session_state.keywords.strip(),
                     st.session_state.style,
                     st.session_state.quality,
                     st.session_state.lighting,
-                    st.session_state.artist,
-                    st.session_state.negative
+                    st.session_state.artist.strip(),
+                    st.session_state.negative.strip()
                 )
                 
                 st.session_state.prompt = prompt
